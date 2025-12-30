@@ -1,3 +1,4 @@
+import '../models/analyse_ia.dart';
 // lib/services/api_service.dart
 
 import 'dart:convert';
@@ -12,8 +13,31 @@ import '../models/prevision.dart';
 import '../models/alerte.dart';
 
 class ApiService {
+
+  // Analyse IA globale pour l'hôpital
+  static Future<Map<String, dynamic>> getAnalyseIAGlobale() async {
+    final url = Uri.parse('$baseUrl/finance/analyse');
+    final response = await http.get(url, headers: await _authHeaders());
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw _buildError(response);
+    }
+  }
+
+    // Analyse IA pour un service hospitalier
+    static Future<AnalyseIA> getAnalyseIAService(int idService) async {
+      final url = Uri.parse('$baseUrl/services/$idService/analyse');
+      final response = await http.get(url, headers: await _authHeaders());
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return AnalyseIA.fromJson(data);
+      } else {
+        throw _buildError(response);
+      }
+    }
   // 🔗 URL de base du backend
-  static const String baseUrl = 'http://localhost:8080';
+  static const String baseUrl = 'http://10.0.2.2:8081';
 
   // ===============================
   //   GESTION DU TOKEN / HEADERS

@@ -1,0 +1,54 @@
+package com.hospital.finance.ai;
+
+import lombok.Data;
+import org.springframework.http.*;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+import java.util.*;
+
+@Component
+public class FinanceAIClient {
+    private final String AI_URL = "http://localhost:8000/analyse"; // Adapter si besoin
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    public AnalyseGlobalResult analyseServices(List<ServiceData> services) {
+        Map<String, Object> req = new HashMap<>();
+        req.put("services", services);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(req, headers);
+        ResponseEntity<AnalyseGlobalResult> resp = restTemplate.exchange(
+                AI_URL,
+                HttpMethod.POST,
+                entity,
+                AnalyseGlobalResult.class
+        );
+        return resp.getBody();
+    }
+
+    @Data
+    public static class ServiceData {
+        private String nom;
+        private Double budget_mensuel;
+        private Double budget_annuel;
+        private List<Double> historique_depenses;
+    }
+
+    @Data
+    public static class AnalyseResult {
+        private String nom;
+        private Double depense_prevue;
+        private String alerte;
+        private String conseil;
+        private String tendance;
+    }
+
+    @Data
+    public static class AnalyseGlobalResult {
+        private Double total_depense_prevue;
+        private List<String> alertes;
+        private List<String> conseils;
+        private List<String> tendances;
+        private List<AnalyseResult> details;
+    }
+}

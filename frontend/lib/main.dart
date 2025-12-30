@@ -1,6 +1,7 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 
+import 'screens/services_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/sejours_screen.dart';
@@ -29,6 +30,7 @@ class HospitalFinanceApp extends StatelessWidget {
       routes: {
         '/login': (context) => const LoginScreen(),
         '/dashboard': (context) => const DashboardScreen(),
+        '/services': (context) => const ServicesScreen(),
         '/sejours': (context) => const SejoursScreen(),
         '/patients': (context) => const PatientsScreen(),
         '/previsions': (context) => const PrevisionsScreen(),

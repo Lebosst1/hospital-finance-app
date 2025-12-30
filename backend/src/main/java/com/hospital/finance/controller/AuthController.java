@@ -75,11 +75,14 @@ public class AuthController {
                         .body("Email ou mot de passe incorrect");
             }
 
-            // 2) Vérifier le mot de passe
-            boolean ok = passwordEncoder.matches(
+
+                // 2) Vérifier le mot de passe
+                System.out.println("Tentative login : email=" + request.getEmail() + ", password=" + request.getPassword());
+                System.out.println("Hash en base : " + utilisateur.getMotDePasse());
+                boolean ok = passwordEncoder.matches(
                     request.getPassword(),
                     utilisateur.getMotDePasse()
-            );
+                );
 
             if (!ok) {
                 return ResponseEntity
