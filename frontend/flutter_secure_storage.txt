@@ -1,2 +1,0 @@
-# Add this to your pubspec.yaml under dependencies:
-flutter_secure_storage: ^9.0.0
