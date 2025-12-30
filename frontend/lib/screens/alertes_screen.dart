@@ -51,13 +51,14 @@ class _AlertesScreenState extends State<AlertesScreen> {
   }
 
   Future<void> _showAlerteDialog({Alerte? initial}) async {
+    final typeCtrl = TextEditingController(text: initial?.type ?? 'Budget');
     final msgCtrl = TextEditingController(text: initial?.message ?? '');
-    final niveauCtrl =
-        TextEditingController(text: initial?.niveau ?? 'WARNING');
-    final dateCtrl =
-        TextEditingController(text: initial?.dateAlerte ?? '');
-    final idServiceCtrl =
-        TextEditingController(text: initial?.idService?.toString() ?? '');
+    final niveauCtrl = TextEditingController(text: initial?.niveau ?? 'WARNING');
+    final dateCtrl = TextEditingController(text: initial?.dateAlerte != null && initial!.dateAlerte.length >= 19
+      ? initial.dateAlerte.substring(0, 19)
+      : '');
+    final idServiceCtrl = TextEditingController(text: initial?.idService?.toString() ?? '');
+    final statutCtrl = TextEditingController(text: initial?.statut ?? 'NOUVELLE');
 
     final formKey = GlobalKey<FormState>();
 
@@ -75,30 +76,36 @@ class _AlertesScreenState extends State<AlertesScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextFormField(
+                    controller: typeCtrl,
+                    decoration: const InputDecoration(labelText: 'Type d\'alerte (obligatoire)'),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Obligatoire' : null,
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
                     controller: msgCtrl,
-                    decoration:
-                        const InputDecoration(labelText: 'Message (obligatoire)'),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Obligatoire' : null,
+                    decoration: const InputDecoration(labelText: 'Message (obligatoire)'),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Obligatoire' : null,
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
                     controller: niveauCtrl,
-                    decoration: const InputDecoration(
-                        labelText: 'Niveau (INFO / WARNING / CRITIQUE)'),
+                    decoration: const InputDecoration(labelText: 'Niveau (INFO / WARNING / CRITIQUE)'),
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
                     controller: dateCtrl,
-                    decoration: const InputDecoration(
-                        labelText: 'Date (YYYY-MM-DD)'),
+                    decoration: const InputDecoration(labelText: 'Date (YYYY-MM-DD)'),
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
                     controller: idServiceCtrl,
-                    decoration:
-                        const InputDecoration(labelText: 'ID Service'),
+                    decoration: const InputDecoration(labelText: 'ID Service'),
                     keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: statutCtrl,
+                    decoration: const InputDecoration(labelText: 'Statut (NOUVELLE, VALIDEE, EN_COURS, RESOLUE)'),
                   ),
                 ],
               ),
@@ -113,18 +120,33 @@ class _AlertesScreenState extends State<AlertesScreen> {
               onPressed: () {
                 if (!formKey.currentState!.validate()) return;
 
+                // Correction : forcer le format yyyy-MM-ddTHH:mm:ss
+                String dateAlerteStr;
+                if (dateCtrl.text.trim().isEmpty) {
+                  final now = DateTime.now();
+                  dateAlerteStr = now.toIso8601String().split('.').first;
+                } else {
+                  final txt = dateCtrl.text.trim();
+                  // Si l'utilisateur saisit juste une date, on complète avec T00:00:00
+                  if (txt.length == 10 && txt.contains('-') && !txt.contains('T')) {
+                    dateAlerteStr = "${txt}T00:00:00";
+                  } else if (txt.length >= 19) {
+                    dateAlerteStr = txt.substring(0, 19);
+                  } else if (txt.length >= 16 && txt.contains('T')) {
+                    // Si l'utilisateur tape "2025-12-30T11:00", on complète avec ":00"
+                    dateAlerteStr = txt + ":00";
+                  } else {
+                    dateAlerteStr = txt;
+                  }
+                }
                 final a = Alerte(
                   idAlerte: initial?.idAlerte,
+                  type: typeCtrl.text.trim(),
                   message: msgCtrl.text.trim(),
-                  niveau: niveauCtrl.text.trim().isEmpty
-                      ? 'WARNING'
-                      : niveauCtrl.text.trim(),
-                  dateAlerte: dateCtrl.text.trim().isEmpty
-                      ? DateTime.now().toIso8601String()
-                      : dateCtrl.text.trim(),
-                  idService: idServiceCtrl.text.trim().isEmpty
-                      ? null
-                      : int.tryParse(idServiceCtrl.text.trim()),
+                  niveau: niveauCtrl.text.trim().isEmpty ? 'WARNING' : niveauCtrl.text.trim(),
+                  dateAlerte: dateAlerteStr,
+                  idService: idServiceCtrl.text.trim().isEmpty ? null : int.tryParse(idServiceCtrl.text.trim()),
+                  statut: statutCtrl.text.trim().isEmpty ? 'NOUVELLE' : statutCtrl.text.trim(),
                 );
 
                 Navigator.pop(ctx, a);
@@ -233,45 +255,73 @@ class _AlertesScreenState extends State<AlertesScreen> {
             ? const Center(child: CircularProgressIndicator())
             : _alertes.isEmpty
                 ? const Center(child: Text('Aucune alerte.'))
-                : ListView.builder(
-                    itemCount: _alertes.length,
-                    itemBuilder: (context, index) {
-                      final a = _alertes[index];
-                      final color = _niveauColor(a.niveau);
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          leading: Icon(Icons.warning_amber, color: color),
-                          title: Text(
-                            a.message,
-                            style: TextStyle(color: color),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                  'Niveau : ${a.niveau} • Date : ${a.dateAlerte}'),
-                              if (a.nomService != null)
-                                Text('Service : ${a.nomService}'),
-                            ],
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.edit),
-                                onPressed: () =>
-                                    _showAlerteDialog(initial: a),
+                : Column(
+                    children: [
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: _alertes.length,
+                          itemBuilder: (context, index) {
+                            final a = _alertes[index];
+                            final color = _niveauColor(a.niveau);
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: ListTile(
+                                leading: Icon(Icons.warning_amber, color: color),
+                                title: Text(
+                                  a.message,
+                                  style: TextStyle(color: color),
+                                ),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                        'Type : ${a.type} • Niveau : ${a.niveau} • Statut : ${a.statut} • Date : ${a.dateAlerte}'),
+                                    if (a.nomService != null)
+                                      Text('Service : ${a.nomService}'),
+                                  ],
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (a.statut != 'VALIDEE')
+                                      IconButton(
+                                        icon: const Icon(Icons.verified_user),
+                                        tooltip: 'Valider',
+                                        onPressed: () async {
+                                          setState(() => _isLoading = true);
+                                          try {
+                                            await ApiService.validerAlerte(a.idAlerte!);
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('Alerte validée ✅')),
+                                            );
+                                            await _loadAlertes();
+                                          } catch (e) {
+                                            if (!mounted) return;
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text('Erreur : $e')),
+                                            );
+                                          } finally {
+                                            if (mounted) setState(() => _isLoading = false);
+                                          }
+                                        },
+                                      ),
+                                    IconButton(
+                                      icon: const Icon(Icons.edit),
+                                      onPressed: () =>
+                                          _showAlerteDialog(initial: a),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete),
+                                      onPressed: () => _confirmDelete(a),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.delete),
-                                onPressed: () => _confirmDelete(a),
-                              ),
-                            ],
-                          ),
+                            );
+                          },
                         ),
-                      );
-                    },
+                      ),
+                    ],
                   ),
       ),
     );

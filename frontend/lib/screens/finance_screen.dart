@@ -31,10 +31,27 @@ class _FinanceScreenState extends State<FinanceScreen> {
       final services = await ApiService.getServices();
       final sejours = await ApiService.getSejours();
 
+      // Appel analyse IA pour le premier service (exemple)
+      String? retourAlertesIA;
+      if (services.isNotEmpty) {
+        try {
+          final analyse = await ApiService.getAnalyseIAService(services[0].idService!);
+          if (analyse.alerte != null && analyse.alerte!.contains('Alerte utilisateur')) {
+            retourAlertesIA = analyse.alerte;
+          }
+        } catch (_) {}
+      }
+
       setState(() {
         _services = services;
         _sejours = sejours;
       });
+
+      if (retourAlertesIA != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Alerte utilisateur prise en compte par l\'IA :\n$retourAlertesIA')),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

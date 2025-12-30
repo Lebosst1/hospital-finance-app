@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../models/auth_models.dart';
 import '../services/api_service.dart';
+import '../services/credential_storage.dart';
 import 'dashboard_screen.dart';
 import 'user_dashboard_screen.dart';
 
@@ -17,8 +18,26 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _rememberMe = false;
 
   final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedCredentials();
+  }
+
+  Future<void> _loadSavedCredentials() async {
+    final creds = await CredentialStorage.loadCredentials();
+    if (creds['email'] != null && creds['password'] != null) {
+      setState(() {
+        _emailController.text = creds['email']!;
+        _passwordController.text = creds['password']!;
+        _rememberMe = true;
+      });
+    }
+  }
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
@@ -31,10 +50,19 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text.trim(),
       );
 
+      if (_rememberMe) {
+        await CredentialStorage.saveCredentials(
+          _emailController.text.trim(),
+          _passwordController.text.trim(),
+        );
+      } else {
+        await CredentialStorage.clearCredentials();
+      }
+
       final authResponse = await ApiService.login(request);
 
       // ignore: avoid_print
-      print('JWT = ${authResponse.token}, ROLE = ${authResponse.role}');
+      print('JWT = [32m${authResponse.token}[0m, ROLE = ${authResponse.role}');
 
       if (!mounted) return;
 
@@ -89,7 +117,21 @@ class _LoginScreenState extends State<LoginScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: _rememberMe,
+                          onChanged: (val) {
+                            setState(() {
+                              _rememberMe = val ?? false;
+                            });
+                          },
+                        ),
+                        const Text('Se souvenir de moi'),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
                     TextFormField(
                       controller: _emailController,
                       decoration: const InputDecoration(

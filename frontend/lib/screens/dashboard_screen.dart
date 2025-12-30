@@ -360,27 +360,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                     const SizedBox(height: 40),
                     // Un petit résumé KPIs
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildKpiCard(
-                          title: 'Nombre de services',
-                          value: _nbServices.toString(),
-                          icon: Icons.local_hospital,
-                        ),
-                        const SizedBox(width: 24),
-                        _buildKpiCard(
-                          title: 'Budget mensuel total',
-                          value: '${_totalMensuel.toStringAsFixed(0)} DH',
-                          icon: Icons.calendar_view_month,
-                        ),
-                        const SizedBox(width: 24),
-                        _buildKpiCard(
-                          title: 'Budget annuel total',
-                          value: '${_totalAnnuel.toStringAsFixed(0)} DH',
-                          icon: Icons.calendar_today,
-                        ),
-                      ],
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildKpiCard(
+                            title: 'Nombre de services',
+                            value: _nbServices.toString(),
+                            icon: Icons.local_hospital,
+                          ),
+                          const SizedBox(width: 24),
+                          _buildKpiCard(
+                            title: 'Budget mensuel total',
+                            value: '${_totalMensuel.toStringAsFixed(0)} DH',
+                            icon: Icons.calendar_view_month,
+                          ),
+                          const SizedBox(width: 24),
+                          _buildKpiCard(
+                            title: 'Budget annuel total',
+                            value: '${_totalAnnuel.toStringAsFixed(0)} DH',
+                            icon: Icons.calendar_today,
+                          ),
+                        ],
+                      ),
                     ),
                     // On peut ajouter d'autres widgets ici si besoin
                   ],

@@ -1,3 +1,4 @@
+
 import '../models/analyse_ia.dart';
 // lib/services/api_service.dart
 
@@ -12,7 +13,23 @@ import '../models/patient.dart';
 import '../models/prevision.dart';
 import '../models/alerte.dart';
 
+
+
+
 class ApiService {
+
+  /// Valide une alerte (statut -> VALIDEE)
+  static Future<Alerte> validerAlerte(int idAlerte) async {
+    final url = Uri.parse('$baseUrl/alerte/$idAlerte/valider');
+    final headers = await _authHeaders();
+    final response = await http.put(url, headers: headers);
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return Alerte.fromJson(json);
+    } else {
+      throw Exception('Erreur validation alerte (${response.statusCode})');
+    }
+  }
 
   // Analyse IA globale pour l'hôpital
   static Future<Map<String, dynamic>> getAnalyseIAGlobale() async {

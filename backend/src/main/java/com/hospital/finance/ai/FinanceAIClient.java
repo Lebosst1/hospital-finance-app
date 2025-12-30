@@ -11,9 +11,17 @@ public class FinanceAIClient {
     private final String AI_URL = "http://localhost:8000/analyse"; // Adapter si besoin
     private final RestTemplate restTemplate = new RestTemplate();
 
+
     public AnalyseGlobalResult analyseServices(List<ServiceData> services) {
+        return analyseServicesWithAlertes(services, null);
+    }
+
+    public AnalyseGlobalResult analyseServicesWithAlertes(List<ServiceData> services, List<AlerteData> alertes) {
         Map<String, Object> req = new HashMap<>();
         req.put("services", services);
+        if (alertes != null) {
+            req.put("alertes", alertes);
+        }
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(req, headers);
@@ -32,6 +40,15 @@ public class FinanceAIClient {
         private Double budget_mensuel;
         private Double budget_annuel;
         private List<Double> historique_depenses;
+    }
+
+    @Data
+    public static class AlerteData {
+        private String type;
+        private String message;
+        private String niveau;
+        private String status;
+        private String dateAlerte;
     }
 
     @Data

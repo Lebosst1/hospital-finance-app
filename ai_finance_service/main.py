@@ -21,8 +21,16 @@ class ServiceData(BaseModel):
     budget_annuel: float
     historique_depenses: Optional[List[float]] = None  # 12 derniers mois
 
+class AlerteData(BaseModel):
+    type: str
+    message: str
+    niveau: str
+    status: str
+    dateAlerte: Optional[str] = None
+
 class AnalyseRequest(BaseModel):
     services: List[ServiceData]
+    alertes: Optional[List[AlerteData]] = None
 
 class AnalyseResult(BaseModel):
     nom: str
@@ -56,6 +64,12 @@ def analyse_finances(req: AnalyseRequest):
     details = []
     total_prevu = 0.0
 
+    # --- Prendre en compte les alertes transmises (si présentes) ---
+    alertes_ia = []
+    if req.alertes:
+        for a in req.alertes:
+            alertes_ia.append(f"Alerte utilisateur: [{a.niveau}] {a.type} - {a.message} (statut: {a.status})")
+
     # --- Analyse par service (prévision, tendance, alertes) ---
     for s in req.services:
         # Prévision simple : moyenne des historiques ou budget mensuel
@@ -85,6 +99,10 @@ def analyse_finances(req: AnalyseRequest):
             alertes.append(alerte)
             conseil = "Réduire les dépenses ou augmenter le budget."
             conseils.append(conseil)
+
+    # Ajouter les alertes utilisateur à la liste globale
+    if alertes_ia:
+        alertes.extend(alertes_ia)
         details.append(AnalyseResult(
             nom=s.nom,
             depense_prevue=round(prevu, 2),
