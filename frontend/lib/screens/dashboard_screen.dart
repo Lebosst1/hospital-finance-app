@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 import '../models/service_hospitalier.dart';
 import '../services/api_service.dart';
 import '../widgets/bar_chart_widget.dart';
+import '../widgets/ai_insights_card.dart';
+import '../widgets/service_budget_tile.dart';
+import '../widgets/app_drawer.dart';
 import 'quick_access_pager.dart';
+import 'dashboard_design_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -24,12 +28,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<ServiceHospitalier> _services = [];
   List<ServiceHospitalier> _filteredServices = [];
   String _searchQuery = '';
+  String _filter = 'Tous'; // Tous | À risque | Anomalies | Dépassés
 
   String _sortMode = 'nom'; // nom | mensuel_desc | annuel_desc
 
   // Pour stocker l'analyse IA globale (annuelle)
   double? _iaAnnuelTotal;
   Map<String, dynamic>? _iaGlobaleData;
+
+  // Ajout pour IA et vue/tab
+  List<String> _aiInsights = [
+    "⚠️ Dépenses anormales détectées en Chirurgie (+18% vs moyenne).",
+    "📈 Prévision : dépassement du budget Cardiologie dans 12 jours.",
+    "✅ Recommandation : augmenter le seuil d’alerte de Service1 à 80%."
+  ];
+  int _selectedTab = 0; // 0: IA, 1: Budgets
 
   @override
   void initState() {
@@ -74,14 +87,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   //   RECHERCHE / TRI
   // ==========================
   void _applyFilter() {
-    if (_searchQuery.trim().isEmpty) {
-      _filteredServices = List.from(_services);
-    } else {
+    List<ServiceHospitalier> base = List.from(_services);
+    if (_searchQuery.trim().isNotEmpty) {
       final q = _searchQuery.toLowerCase();
-      _filteredServices = _services
-          .where((s) => s.nomService.toLowerCase().contains(q))
-          .toList();
+      base = base.where((s) => s.nomService.toLowerCase().contains(q)).toList();
     }
+    // Filtre IA
+    if (_filter == 'À risque') {
+      base = base.where((s) => s.nomService.toLowerCase().contains('cardio')).toList(); // exemple
+    } else if (_filter == 'Anomalies') {
+      base = base.where((s) => s.nomService.toLowerCase().contains('chir')).toList(); // exemple
+    } else if (_filter == 'Dépassés') {
+      base = base.where((s) => (s.budgetAnnuel ?? 0) < 10000).toList(); // exemple
+    }
+    _filteredServices = base;
     _applySort();
   }
 
@@ -296,97 +315,164 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Row(
-          children: [
-            const Text('Hospital Finance Dashboard', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(width: 16),
-            if (_isAdmin)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  'ADMIN',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-          ],
-        ),
-        actions: [
-          if (_userName.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Text('Bienvenue, $_userName'),
-            ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _handleLogout,
-            tooltip: 'Déconnexion',
-          ),
-        ],
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.maybePop(context),
+              )
+            : null,
+        title: const Text('Budgets et seuils d\'alerte'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0.5,
       ),
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFe0e7ff), Color(0xFFfdf6ff)],
-          ),
-        ),
+      drawer: AppDrawer(isAdmin: _isAdmin, currentRoute: '/dashboard'),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          // Action IA (ouvrir bottom sheet ou page)
+          showModalBottomSheet(
+            context: context,
+            builder: (ctx) => Container(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("✨ Demander à l’IA", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  ..._aiInsights.map((i) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(i, style: const TextStyle(fontSize: 16)),
+                  )),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.analytics),
+                    label: const Text("Fermer"),
+                  )
+                ],
+              ),
+            ),
+          );
+        },
+        icon: const Icon(Icons.auto_awesome),
+        label: const Text("Demander à l’IA"),
+      ),
+      body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.only(top: 80.0, left: 16, right: 16),
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Accès rapide sous forme de PageView avec flèches
-                    SizedBox(
-                      height: 160,
-                      child: QuickAccessPager(),
-                    ),
-
-                    const SizedBox(height: 40),
-                    // Un petit résumé KPIs
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _buildKpiCard(
-                            title: 'Nombre de services',
-                            value: _nbServices.toString(),
-                            icon: Icons.local_hospital,
-                          ),
-                          const SizedBox(width: 24),
-                          _buildKpiCard(
-                            title: 'Budget mensuel total',
-                            value: '${_totalMensuel.toStringAsFixed(0)} DH',
-                            icon: Icons.calendar_view_month,
-                          ),
-                          const SizedBox(width: 24),
-                          _buildKpiCard(
-                            title: 'Budget annuel total',
-                            value: '${_totalAnnuel.toStringAsFixed(0)} DH',
-                            icon: Icons.calendar_today,
-                          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Tabs IA/Budget
+              Row(
+                children: [
+                  ChoiceChip(
+                    label: const Text("Vue IA"),
+                    selected: _selectedTab == 0,
+                    onSelected: (v) => setState(() => _selectedTab = 0),
+                  ),
+                  const SizedBox(width: 12),
+                  ChoiceChip(
+                    label: const Text("Vue Budgets"),
+                    selected: _selectedTab == 1,
+                    onSelected: (v) => setState(() => _selectedTab = 1),
+                  ),
+                  const Spacer(),
+                  DropdownButton<String>(
+                    value: _filter,
+                    items: ["Tous", "À risque", "Anomalies", "Dépassés"]
+                        .map((f) => DropdownMenuItem(value: f, child: Text(f)))
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null) setState(() {
+                        _filter = v;
+                        _applyFilter();
+                      });
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (_selectedTab == 0) ...[
+                // Bloc IA très visible
+                AiInsightsCard(
+                  insights: _aiInsights,
+                  onOpen: () {
+                    // Action voir analyse IA
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text("Analyse IA complète"),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: _aiInsights.map((i) => Text(i)).toList(),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text("Fermer"),
+                          )
                         ],
                       ),
-                    ),
-                    // On peut ajouter d'autres widgets ici si besoin
-                  ],
+                    );
+                  },
                 ),
+                const SizedBox(height: 12),
+                // Résumé global
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Expanded(child: Text("Budget annuel : ${_totalAnnuel.toStringAsFixed(0)} DH")),
+                        Expanded(child: Text("Dépensé : ...")),
+                        Expanded(child: Text("Reste : ...")),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Liste services IA
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: _filteredServices.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (ctx, i) {
+                      final s = _filteredServices[i];
+                      final aiFlag = i == 0 || i == 1; // exemple IA
+                      return ServiceBudgetTile(
+                        name: s.nomService,
+                        allocated: s.budgetAnnuel ?? 0,
+                        spent: (s.budgetAnnuel ?? 0) * (0.62 + i * 0.05), // fake
+                        aiFlag: aiFlag,
+                        onMenu: () {},
+                      );
+                    },
+                  ),
+                ),
+              ] else ...[
+                // Vue budgets classique
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: _filteredServices.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (ctx, i) {
+                      final s = _filteredServices[i];
+                      return ServiceBudgetTile(
+                        name: s.nomService,
+                        allocated: s.budgetAnnuel ?? 0,
+                        spent: (s.budgetAnnuel ?? 0) * (0.62 + i * 0.05), // fake
+                        aiFlag: false,
+                        onMenu: () {},
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -419,38 +505,66 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // Widget KPI
-  Widget _buildKpiCard({required String title, required String value, required IconData icon}) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: Colors.blueGrey, size: 32),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.black54,
-                  ),
+  Widget _buildKpiCard({required String title, required String value, required IconData icon, Color color = const Color(0xFF6366f1)}) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.55),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.18),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+        border: Border.all(color: color.withOpacity(0.18), width: 1.2),
+        // Glassmorphism effect
+        backgroundBlendMode: BlendMode.overlay,
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () {},
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.13),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                padding: const EdgeInsets.all(10),
+                child: Icon(icon, color: color, size: 36),
+              ),
+              const SizedBox(width: 18),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: color.withOpacity(0.85),
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                  const SizedBox(height: 6),
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

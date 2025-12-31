@@ -14,6 +14,8 @@ class _FinanceScreenState extends State<FinanceScreen> {
   bool _isLoading = false;
   List<ServiceHospitalier> _services = [];
   List<Sejour> _sejours = [];
+  String? _explicationIA;
+  String? _badgeFiabilite;
 
   @override
   void initState() {
@@ -31,27 +33,21 @@ class _FinanceScreenState extends State<FinanceScreen> {
       final services = await ApiService.getServices();
       final sejours = await ApiService.getSejours();
 
-      // Appel analyse IA pour le premier service (exemple)
-      String? retourAlertesIA;
-      if (services.isNotEmpty) {
-        try {
-          final analyse = await ApiService.getAnalyseIAService(services[0].idService!);
-          if (analyse.alerte != null && analyse.alerte!.contains('Alerte utilisateur')) {
-            retourAlertesIA = analyse.alerte;
-          }
-        } catch (_) {}
-      }
+      // Appel analyse IA explicative globale
+      String? explication;
+      String? badge;
+      try {
+        final analyse = await ApiService.getAnalyseIAGlobale();
+        explication = analyse['explication'] ?? null;
+        badge = analyse['badge'] ?? null;
+      } catch (_) {}
 
       setState(() {
         _services = services;
         _sejours = sejours;
+        _explicationIA = explication;
+        _badgeFiabilite = badge;
       });
-
-      if (retourAlertesIA != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Alerte utilisateur prise en compte par l\'IA :\n$retourAlertesIA')),
-        );
-      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -91,6 +87,10 @@ class _FinanceScreenState extends State<FinanceScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Text('Synthèse financière'),
         actions: [
           TextButton.icon(
@@ -240,34 +240,44 @@ class _FinanceScreenState extends State<FinanceScreen> {
 
                         const SizedBox(height: 24),
 
-                        // ========= EXPLICATION / LÉGENDE =========
-                        Card(
-                          elevation: 1,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
-                                Text(
-                                  'Interprétation :',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
+                        // ========= EXPLICATION IA =========
+                        if (_explicationIA != null || _badgeFiabilite != null)
+                          Card(
+                            elevation: 2,
+                            color: Colors.indigo.shade50,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (_badgeFiabilite != null)
+                                    Container(
+                                      margin: const EdgeInsets.only(right: 16),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: _badgeFiabilite == 'Prédiction fiable' ? Colors.green.shade100 : Colors.orange.shade100,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        _badgeFiabilite!,
+                                        style: TextStyle(
+                                          color: _badgeFiabilite == 'Prédiction fiable' ? Colors.green.shade800 : Colors.orange.shade800,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  Expanded(
+                                    child: Text(
+                                      _explicationIA ?? 'Aucune explication IA disponible.',
+                                      style: const TextStyle(fontSize: 15),
+                                    ),
                                   ),
-                                ),
-                                SizedBox(height: 8),
-                                Text(
-                                  '• "Budget mensuel" : allocation prévue pour le service.\n'
-                                  '• "Coût réel séjours" : somme des coûts des séjours rattachés au service.\n'
-                                  '• "Écart" = Budget mensuel - Coût réel.\n'
-                                  '   → négatif = dépassement de budget.\n'
-                                  '• "Dépassement" : le coût réel dépasse le budget.\n'
-                                  '• "Sous contrôle" : le coût réel reste en dessous du budget.',
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
+
+                        const SizedBox(height: 24),
                       ],
                     ),
         ),

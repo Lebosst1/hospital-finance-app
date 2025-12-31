@@ -1,6 +1,8 @@
+
 package com.hospital.finance.ai;
 
 import lombok.Data;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -8,7 +10,8 @@ import java.util.*;
 
 @Component
 public class FinanceAIClient {
-    private final String AI_URL = "http://localhost:8000/analyse"; // Adapter si besoin
+    @Value("${ai.service.url}")
+    private String AI_URL;
     private final RestTemplate restTemplate = new RestTemplate();
 
 

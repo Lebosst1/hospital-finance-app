@@ -31,3 +31,18 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Python
+__pycache__/
+*.pyc
+
+# Flutter / Dart
+.dart_tool/
+build/
+flutter_secure_storage.txt
+
+# OS / IDE
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -71,17 +71,11 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       // 🧠 ROUTAGE SELON LE RÔLE
-      Widget next;
       if (authResponse.role.toUpperCase() == 'ADMIN') {
-        next = const DashboardScreen();          // espace admin
+        Navigator.pushReplacementNamed(context, '/admin');
       } else {
-        next = const UserDashboardScreen();      // espace utilisateur simple
+        Navigator.pushReplacementNamed(context, '/dashboard');
       }
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => next),
-      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

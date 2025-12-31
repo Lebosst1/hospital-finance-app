@@ -13,7 +13,7 @@ DATASET_PATH = os.path.join(os.path.dirname(__file__), "hospital_finance_data.cs
 if os.path.exists(DATASET_PATH):
     finance_df = pd.read_csv(DATASET_PATH)
 else:
-    finance_df = pd.DataFrame(columns=["service", "year", "month", "expense"])
+    finance_df = pd.DataFrame(columns=["service", "budget_mensuel", "budget_annuel", "depense_actuelle", "seuil_alerte_orange", "seuil_alerte_rouge", "mois", "anomalie"])
 
 class ServiceData(BaseModel):
     nom: str
@@ -80,7 +80,7 @@ def analyse_finances(req: AnalyseRequest):
         else:
             # Si pas d'historique, utiliser le dataset CSV si dispo
             if not finance_df.empty and s.nom in finance_df['service'].values:
-                histo = finance_df[finance_df['service'] == s.nom]['expense'].values
+                histo = finance_df[finance_df['service'] == s.nom]['depense_actuelle'].values
                 if len(histo) >= 3:
                     prevu = float(np.mean(histo[-3:]))
                     tendance_val = np.polyfit(range(len(histo)), histo, 1)[0]
@@ -114,27 +114,18 @@ def analyse_finances(req: AnalyseRequest):
 
     # --- Analyse globale par mois et par année ---
     global_par_mois = {}
-    global_par_annee = {}
     par_service_par_mois = {}
-    par_service_par_annee = {}
     if not finance_df.empty:
         # Global par mois
-        mois_group = finance_df.groupby(['year', 'month'])['expense'].sum().reset_index()
+        mois_group = finance_df.groupby(['mois'])['depense_actuelle'].sum().reset_index()
         for _, row in mois_group.iterrows():
-            key = f"{int(row['year'])}-{int(row['month']):02d}"
-            global_par_mois[key] = float(row['expense'])
-        # Global par année
-        annee_group = finance_df.groupby(['year'])['expense'].sum().reset_index()
-        for _, row in annee_group.iterrows():
-            key = f"{int(row['year'])}"
-            global_par_annee[key] = float(row['expense'])
+            key = row['mois']
+            global_par_mois[key] = float(row['depense_actuelle'])
         # Par service par mois
         for service in finance_df['service'].unique():
             df_s = finance_df[finance_df['service'] == service]
-            mois_s = df_s.groupby(['year', 'month'])['expense'].sum().reset_index()
-            par_service_par_mois[service] = {f"{int(r['year'])}-{int(r['month']):02d}": float(r['expense']) for _, r in mois_s.iterrows()}
-            annee_s = df_s.groupby(['year'])['expense'].sum().reset_index()
-            par_service_par_annee[service] = {f"{int(r['year'])}": float(r['expense']) for _, r in annee_s.iterrows()}
+            mois_s = df_s.groupby(['mois'])['depense_actuelle'].sum().reset_index()
+            par_service_par_mois[service] = {r['mois']: float(r['depense_actuelle']) for _, r in mois_s.iterrows()}
 
     return AnalyseGlobalResult(
         total_depense_prevue=round(total_prevu, 2),
@@ -143,9 +134,9 @@ def analyse_finances(req: AnalyseRequest):
         tendances=tendances,
         details=details,
         global_par_mois=global_par_mois,
-        global_par_annee=global_par_annee,
+        global_par_annee={},
         par_service_par_mois=par_service_par_mois,
-        par_service_par_annee=par_service_par_annee
+        par_service_par_annee={}
     )
 
 # Pour lancer : uvicorn main:app --reload
